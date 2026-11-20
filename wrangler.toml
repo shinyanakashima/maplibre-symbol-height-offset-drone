@@ -1,0 +1,6 @@
+# Cloudflare Pages の設定
+#   npm run build
+#   npx wrangler pages deploy
+name = "maplibre-drone-flight-3d"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-11-01"
