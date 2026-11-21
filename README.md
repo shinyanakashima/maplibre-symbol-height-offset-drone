@@ -83,7 +83,11 @@ npm run build
 npx wrangler pages deploy
 ```
 
-GitHub Actions（`.github/workflows/deploy.yml`）は main への push でテスト・ビルドし、リポジトリのシークレット `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` があれば Cloudflare Pages（プロジェクト名 `maplibre-drone-flight-3d`）にデプロイします。ビルドは相対パス（`base: './'`）なので GitHub Pages など他の静的ホスティングにも置けます。
+GitHub Actions（`.github/workflows/deploy.yml`）は main への push でテスト・ビルドし、リポジトリのシークレット `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` があれば Cloudflare Pages（プロジェクト名 `maplibre-drone-flight-3d`）にデプロイします。
+
+## デプロイ（GitHub Pages）
+
+`.github/workflows/pages.yml` が main への push（または手動実行）でビルドし、GitHub Pages に公開します。リポジトリの Settings → Pages → Build and deployment の Source を「GitHub Actions」にしておく必要があります。ビルドは相対パス（`base: './'`）なので `https://<user>.github.io/<repo>/` のようなサブパスでも動きます。
 
 ## 実機の KMZ を追加するとき
 
