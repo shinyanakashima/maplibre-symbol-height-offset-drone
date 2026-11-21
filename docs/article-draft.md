@@ -4,8 +4,8 @@
 
 ドローンの自動航行で使う飛行計画ファイル（DJI の KMZ / WPML）を、MapLibre GL JS の `symbol-height-offset` を使って地図の上の空中に表示してみました。やってみると、表示そのものより「その高さは何から測った高さなのか」をそろえる部分に手間がかかったので、そのあたりを中心に書きます。
 
-- デモ: （デプロイ後に URL を記載）
-- ソース: （リポジトリ URL を記載）
+- デモ: https://shinyanakashima.github.io/maplibre-symbol-height-offset-drone/
+- ソース: https://github.com/shinyanakashima/maplibre-symbol-height-offset-drone
 
 ![デモ画面](./images/hero.jpg)
 
