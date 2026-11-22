@@ -1,0 +1,34 @@
+[
+  {
+    "file": "flat-relative.kmz",
+    "title": "平坦な地形（離陸地点相対 60m）",
+    "description": "帯広市西部の畑地。標高差が小さいため、離陸地点相対高度と地表からの高さがほぼ一致する。"
+  },
+  {
+    "file": "hilly-relative.kmz",
+    "title": "起伏のある地形（離陸地点相対 150m）",
+    "description": "帯広市拓成町付近。谷で離陸し尾根へ向かうため、離陸地点相対 150m でも尾根付近では地表より下になる。",
+    "geoidHeight": 29.56
+  },
+  {
+    "file": "multi-wayline-wgs84.kmz",
+    "title": "複数 wayline・楕円体高（WGS84）",
+    "description": "wayline 0 は対地 40〜100m、wayline 1 は 30〜120m の上昇。ジオイド高 29.47m を入力すると意図した対地高度になる。",
+    "geoidHeight": 29.47
+  },
+  {
+    "file": "mixed-height-modes.kmz",
+    "title": "異なる高度モード（テスト用）",
+    "description": "wayline 0 は離陸地点相対、1 はリアルタイム地表追従（参考表示）、2 は未知のモード（変換しない）。"
+  },
+  {
+    "file": "template-only-egm96.kmz",
+    "title": "template.kml のみ（EGM96）",
+    "description": "waylines.wpml を含まない KMZ。template.kml の wpml:height（EGM96 海抜高度）から表示する。"
+  },
+  {
+    "file": "template-only-mapping2d.kmz",
+    "title": "template.kml のみ（mapping2d）",
+    "description": "測量エリアだけを持つテンプレート。経路は DJI Pilot 2 が生成するため、エリアのみ表示される。"
+  }
+]

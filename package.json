@@ -1,0 +1,32 @@
+{
+  "name": "maplibre-drone-flight-3d",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DJI WPML (KMZ) の飛行計画を MapLibre GL JS の symbol-height-offset で3D可視化するビューア",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "samples": "tsx scripts/make-samples.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "jszip": "^3.10.2",
+    "maplibre-gl": "^6.19.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pngjs": "^6.0.5",
+    "@types/three": "^0.187.0",
+    "jsdom": "^31.0.1",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.8",
+    "vitest": "^3.2.7"
+  }
+}
