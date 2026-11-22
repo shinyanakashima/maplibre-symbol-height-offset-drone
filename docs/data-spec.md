@@ -48,7 +48,10 @@ KMZ ──JSZip──▶ waylines.wpml / template.kml ──DOMParser──▶ P
 
 ## 2. 地表標高（src/terrain/gsiDem.ts）
 
-- 国土地理院 標高タイル（`dem_png`、z14）を取得して双線形補間する `DemSampler`。
+- 国土地理院 標高タイルを取得して双線形補間する `DemSampler`。
+- 既定（auto）は z15 で、5m メッシュ（`dem5a_png`、航空レーザ測量）を優先し、データのない画素を 10m メッシュ（`dem_png` z14 の該当する 1/4 を拡大）で補う（`loadDemTile` / `fillFromParent`）。画素ごとに元データ（5A / 10B）を記録し、画面に表示する。
+- 10m メッシュのみ（dem10b）は z14。
+- MapLibre の Terrain にも同じ合成タイルを `gsidem://{auto|dem10b}/{z}/{x}/{y}` プロトコルで渡す。Terrain は表示ズームより 1 段粗いタイルを読むため、5m メッシュが地形に反映されるのはズーム 16 以上。
 - 高度変換はこのサンプラーの値を使う。`map.queryTerrainElevation()` は描画中のタイルのズームで値が変わり、Terrain 無効時は使えないため。
 - 検証タブで両者を比較できる。
 

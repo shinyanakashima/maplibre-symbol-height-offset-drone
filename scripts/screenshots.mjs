@@ -78,7 +78,9 @@ for (const s of shots) {
     await page.dispatchEvent('#geoid', 'change');
   }
   if (s.view) await page.evaluate((v) => window.__app.view.map.jumpTo(v), s.view);
-  await page.waitForTimeout(9000);
+  // 5m メッシュは z15 のためタイル数が多く、ソフトウェア描画では読み込みに時間がかかる
+  await page.waitForFunction(() => window.__app.view.map.areTilesLoaded(), null, { timeout: 40000 }).catch(() => {});
+  await page.waitForTimeout(3000);
   await page.screenshot({ path: `${out}/${s.name}.jpg`, type: 'jpeg', quality: 82 });
   console.log('saved', s.name);
   await page.close();

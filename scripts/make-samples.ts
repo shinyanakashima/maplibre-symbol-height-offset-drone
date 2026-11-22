@@ -2,18 +2,19 @@
  * サンプル KMZ を public/samples/ に生成する。
  *   npm run samples
  *
- * WGS84（楕円体高）や EGM96 のサンプルは、地理院 DEM と国土地理院ジオイド計算サービスで求めた
+ * WGS84（楕円体高）や EGM96 のサンプルは、地理院 DEM（5m メッシュ優先）と国土地理院ジオイド計算サービスで求めた
  * ジオイド高（下記 GEOID_FLAT）から「意図した対地高度」になるよう逆算して作っている。
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { DemSampler } from '../src/terrain/gsiDem';
-import { nodeGsiLoader } from './nodeDemLoader';
+import { DemSampler, demModeZoom } from '../src/terrain/gsiDem';
+import { nodeDemLoader } from './nodeDemLoader';
 import { buildKmz, type SampleMission, type SampleWaypoint } from './wpmlBuilder';
 
 /** 北緯42.88 東経143.10 のジオイド高（国土地理院 ジオイド2011 による計算値, m） */
 const GEOID_FLAT = 29.47;
 
-const dem = new DemSampler(nodeGsiLoader, 14);
+// アプリの既定と同じく 5m メッシュ優先（ない所は 10m）の標高を使う
+const dem = new DemSampler(nodeDemLoader('auto'), demModeZoom('auto'));
 const elev = (lng: number, lat: number) => {
   const h = dem.elevation(lng, lat);
   if (h === null) throw new Error(`DEM なし ${lng},${lat}`);
