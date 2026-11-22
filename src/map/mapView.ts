@@ -11,7 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { FeatureCollection } from 'geojson';
 import { registerGsiDemProtocol } from '../terrain/browserDem';
-import { GSI_DEM_MAX_ZOOM } from '../terrain/gsiDem';
+import { GSI_DEM5A_ZOOM, GSI_DEM_MAX_ZOOM, type DemMode } from '../terrain/gsiDem';
 import { addIcons } from './icons';
 import { ThreeRouteLayer, type Route3D } from './threeRouteLayer';
 
@@ -43,9 +43,10 @@ function style(): StyleSpecification {
         maxzoom: 18,
         attribution: GSI_ATTR,
       },
-      // Terrain 用と陰影用でソースを分ける（MapLibre の推奨）
-      'gsi-dem': { type: 'raster-dem', tiles: ['gsidem://{z}/{x}/{y}'], tileSize: 256, maxzoom: GSI_DEM_MAX_ZOOM, encoding: 'terrarium' },
-      'gsi-dem-hs': { type: 'raster-dem', tiles: ['gsidem://{z}/{x}/{y}'], tileSize: 256, maxzoom: GSI_DEM_MAX_ZOOM, encoding: 'terrarium' },
+      // Terrain 用: 5m メッシュ優先（z15）と 10m メッシュのみ（z14）。陰影用は別ソース（MapLibre の推奨）
+      'gsi-dem-auto': { type: 'raster-dem', tiles: ['gsidem://auto/{z}/{x}/{y}'], tileSize: 256, maxzoom: GSI_DEM5A_ZOOM, encoding: 'terrarium' },
+      'gsi-dem-dem10b': { type: 'raster-dem', tiles: ['gsidem://dem10b/{z}/{x}/{y}'], tileSize: 256, maxzoom: GSI_DEM_MAX_ZOOM, encoding: 'terrarium' },
+      'gsi-dem-hs': { type: 'raster-dem', tiles: ['gsidem://dem10b/{z}/{x}/{y}'], tileSize: 256, maxzoom: GSI_DEM_MAX_ZOOM, encoding: 'terrarium' },
       mission: { type: 'geojson', data: EMPTY },
       routes: { type: 'geojson', data: EMPTY },
       area: { type: 'geojson', data: EMPTY },
@@ -199,6 +200,7 @@ export class MapView {
   overlap = true;
   terrain = true;
   exaggeration = 1;
+  demMode: DemMode = 'auto';
 
   constructor(opts: MapViewOptions) {
     maplibregl.setWorkerUrl(workerUrl);
@@ -305,7 +307,13 @@ export class MapView {
   }
 
   private applyTerrain(): void {
-    this.map.setTerrain(this.terrain ? { source: 'gsi-dem', exaggeration: this.exaggeration } : null);
+    this.map.setTerrain(this.terrain ? { source: `gsi-dem-${this.demMode}`, exaggeration: this.exaggeration } : null);
+  }
+
+  /** Terrain に使う標高データを切り替える（高度換算用サンプラーと同じものにする） */
+  setDemMode(mode: DemMode): void {
+    this.demMode = mode;
+    this.applyTerrain();
   }
 
   /** 描画中の Terrain から標高を得る（検証用）。Terrain 無効時は null。 */

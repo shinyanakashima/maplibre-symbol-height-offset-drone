@@ -5,8 +5,8 @@ import { heightModeLabel } from './altitude/altitude';
 import { buildTimeline, formatDuration, stateAt, type Timeline } from './animation/timeline';
 import { MapView, type AnchorMode, type Basemap, type RouteMode } from './map/mapView';
 import type { Route3D } from './map/threeRouteLayer';
-import { browserGsiLoader } from './terrain/browserDem';
-import { DemSampler } from './terrain/gsiDem';
+import { browserDemLoader } from './terrain/browserDem';
+import { DemSampler, demModeZoom, type DemMode } from './terrain/gsiDem';
 import { droneName, esc, m, n, STATUS_LABEL } from './ui/format';
 import {
   chooseTakeoff,
@@ -39,6 +39,7 @@ const state = {
   userTakeoff: null as { lng: number; lat: number } | null,
   pickingTakeoff: false,
   geoidHeight: null as number | null,
+  demMode: 'auto' as DemMode,
   anchor: 'ground' as AnchorMode,
   terrain: true,
   exaggeration: 1,
@@ -57,7 +58,23 @@ const state = {
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 
-const sampler = new DemSampler(browserGsiLoader, 14);
+const samplers: Record<DemMode, DemSampler> = {
+  auto: new DemSampler(browserDemLoader('auto'), demModeZoom('auto')),
+  dem10b: new DemSampler(browserDemLoader('dem10b'), demModeZoom('dem10b')),
+};
+/** 高度換算用の DEM サンプラー（Terrain と同じ標高データ） */
+const dem = () => samplers[state.demMode];
+
+const DEM_LABEL: Record<string, string> = { DEM5A: '5m メッシュ（航空レーザ）', DEM10B: '10m メッシュ（等高線）' };
+
+function missionPoints(): Array<[number, number]> {
+  const ms = state.mission;
+  if (!ms) return [];
+  const pts: Array<[number, number]> = ms.waylines.flatMap((w) => w.waypoints.map((p) => [p.lng, p.lat] as [number, number]));
+  if (ms.takeoffRef) pts.push([ms.takeoffRef.lng, ms.takeoffRef.lat]);
+  if (state.userTakeoff) pts.push([state.userTakeoff.lng, state.userTakeoff.lat]);
+  return pts;
+}
 let popup: maplibregl.Popup | null = null;
 
 const view = new MapView({
@@ -70,7 +87,7 @@ const view = new MapView({
     if (!state.pickingTakeoff) return;
     state.pickingTakeoff = false;
     state.userTakeoff = { lng: lngLat.lng, lat: lngLat.lat };
-    await sampler.preload([[lngLat.lng, lngLat.lat]]);
+    await dem().preload([[lngLat.lng, lngLat.lat]]);
     recompute();
     toast('離陸地点を設定しました');
   },
@@ -91,10 +108,8 @@ async function loadKmz(data: ArrayBuffer, name: string, sample: SampleEntry | nu
     state.time = 0;
     $('#empty-hint').hidden = true;
     await view.whenReady();
-    const pts: Array<[number, number]> = mission.waylines.flatMap((w) => w.waypoints.map((p) => [p.lng, p.lat] as [number, number]));
-    if (mission.takeoffRef) pts.push([mission.takeoffRef.lng, mission.takeoffRef.lat]);
     toast('標高タイルを読み込み中…');
-    await sampler.preload(pts);
+    await dem().preload(missionPoints());
     toast(`${name} を読み込みました`);
     recompute();
     const b = missionBounds(mission);
@@ -127,9 +142,9 @@ function recompute() {
   const mission = state.mission;
   if (!mission) return;
   const base = chooseTakeoff(mission, state.userTakeoff);
-  state.takeoff = base ? { ...base, groundElevation: sampler.elevation(base.lng, base.lat) } : null;
+  state.takeoff = base ? { ...base, groundElevation: dem().elevation(base.lng, base.lat) } : null;
   state.resolved = resolveWaypoints(mission, {
-    elevation: (lng, lat) => sampler.elevation(lng, lat),
+    elevation: (lng, lat) => dem().elevation(lng, lat),
     takeoff: state.takeoff,
     geoidHeight: state.geoidHeight,
   });
@@ -214,11 +229,27 @@ function wpDetailHtml(wp: ResolvedWaypoint): string {
     <dt>高度（ファイル値）</dt><dd>${m(wp.executeHeight, 2)}（${esc(heightModeLabel(wp.heightMode))}）</dd>
     <dt>地表からの高さ</dt><dd class="${a.belowGround ? 'below' : ''}">${m(a.agl)}</dd>
     <dt>標高</dt><dd>${m(a.absolute)}</dd>
-    <dt>地表の標高</dt><dd>${m(wp.groundElevation)}</dd>
+    <dt>地表の標高</dt><dd>${m(wp.groundElevation)}${demSourceNote(wp.lng, wp.lat)}</dd>
     <dt>速度</dt><dd>${wp.waypointSpeed === null ? '—' : `${wp.waypointSpeed} m/s`}${wp.speedSource === 'wayline' ? '（wayline 共通）' : ''}</dd>
     <dt>状態</dt><dd class="status-${a.status}">${STATUS_LABEL[a.status]}</dd>
   </dl>
   ${a.notes.length ? `<div class="notice ${a.belowGround ? 'danger' : ''}"><ul>${a.notes.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}`;
+}
+
+function demSourceNote(lng: number, lat: number): string {
+  const src = dem().sourceAt(lng, lat);
+  return src ? `<br><span class="muted">${DEM_LABEL[src]}</span>` : '';
+}
+
+function demCounts(): { a5: number; b10: number } {
+  let a5 = 0;
+  let b10 = 0;
+  for (const w of state.resolved) {
+    const src = dem().sourceAt(w.lng, w.lat);
+    if (src === 'DEM5A') a5++;
+    else if (src === 'DEM10B') b10++;
+  }
+  return { a5, b10 };
 }
 
 function showPopup(id: string, lngLat: maplibregl.LngLat) {
@@ -297,7 +328,7 @@ function renderPlanTab() {
       <span>${esc(tkSource)}</span>
     </div>
     <div class="form-row">
-      <label>離陸地点の標高</label><span>${m(tk?.groundElevation ?? null)}（地理院 DEM）</span>
+      <label>離陸地点の標高</label><span>${m(tk?.groundElevation ?? null)}${tk ? demSourceNote(tk.lng, tk.lat) : ''}</span>
     </div>
     <div class="form-row">
       <label></label>
@@ -314,6 +345,16 @@ function renderPlanTab() {
         ? `<div class="notice info">takeOffRefPointAGLHeight = ${ms.takeoffRef.aglHeight} m が記録されています。仕様上の意味が確定できないため換算には使っていません。</div>`
         : ''
     }
+    <div class="form-row">
+      <label for="dem-mode">標高データ</label>
+      <select id="dem-mode">
+        <option value="auto" ${state.demMode === 'auto' ? 'selected' : ''}>5m メッシュ優先（ない所は 10m）</option>
+        <option value="dem10b" ${state.demMode === 'dem10b' ? 'selected' : ''}>10m メッシュのみ</option>
+      </select>
+    </div>
+    <p class="muted">地理院の標高タイル。5m メッシュは航空レーザ測量（標準偏差 0.3m 以内、整備済み地域のみ）、10m メッシュは地形図の等高線から作成（同 5m 以内、全国）。
+      ${state.mission ? (() => { const c = demCounts(); return `このミッションの WP: 5m ${c.a5} 点 / 10m ${c.b10} 点。`; })() : ''}
+      地図の地形にも同じデータを使います。レーザの標高は建物・樹木を除いた地面の高さです。</p>
     <div class="form-row">
       <label for="geoid">ジオイド高</label>
       <input id="geoid" type="number" step="0.01" placeholder="例 29.47" value="${state.geoidHeight ?? ''}" /> m
@@ -395,7 +436,7 @@ function renderVerifyTab() {
           })
           .join('')}
       </table>
-      <p class="muted">DEM: 地理院標高タイル z14 を双線形補間した値（高度換算に使用）。query*: 描画中の Terrain から <code>map.queryTerrainElevation()</code> で得た値 ÷ 誇張率。単位 m。</p>`
+      <p class="muted">DEM: 地理院標高タイル（${state.demMode === 'auto' ? '5m メッシュ優先、z15' : '10m メッシュ、z14'}）を双線形補間した値（高度換算に使用）。query*: 描画中の Terrain から <code>map.queryTerrainElevation()</code> で得た値 ÷ 誇張率。単位 m。</p>`
     : '<p class="muted">KMZ を読み込むと比較表が表示されます。</p>';
 
   el.innerHTML = `
@@ -487,7 +528,7 @@ function droneFeature(): FeatureCollection {
   const tl = state.timeline;
   if (!tl || tl.segments.length === 0) return { type: 'FeatureCollection', features: [] };
   const st = stateAt(tl, state.time)!;
-  const ground = sampler.elevation(st.lng, st.lat);
+  const ground = dem().elevation(st.lng, st.lat);
   const agl = st.absolute !== null && ground !== null ? st.absolute - ground : st.agl;
   const abs = st.absolute ?? (ground ?? 0) + st.agl;
   const seg = tl.segments[st.segmentIndex];
@@ -518,7 +559,7 @@ function updatePlayerInfo() {
     return;
   }
   const st = stateAt(tl, state.time)!;
-  const ground = sampler.elevation(st.lng, st.lat);
+  const ground = dem().elevation(st.lng, st.lat);
   const agl = st.absolute !== null && ground !== null ? st.absolute - ground : null;
   ($('#seek') as HTMLInputElement).value = String(Math.round((state.time / tl.totalTime) * 1000));
   info.innerHTML = `シミュレーション <b>${formatDuration(state.time)}</b> / ${formatDuration(tl.totalTime)}（推定）
@@ -654,7 +695,18 @@ $('#panel').addEventListener('click', (e) => {
 
 $('#panel').addEventListener('change', (e) => {
   const t = e.target as HTMLInputElement;
-  if (t.id === 'geoid') {
+  if (t.id === 'dem-mode') {
+    state.demMode = t.value as DemMode;
+    state.terrainCompare = null;
+    view.setDemMode(state.demMode);
+    toast('標高タイルを読み込み中…');
+    dem()
+      .preload(missionPoints())
+      .then(() => {
+        recompute();
+        toast(state.demMode === 'auto' ? '5m メッシュ優先に切り替えました' : '10m メッシュのみに切り替えました');
+      });
+  } else if (t.id === 'geoid') {
     const v = t.value.trim() === '' ? null : Number(t.value);
     state.geoidHeight = v !== null && Number.isFinite(v) ? v : null;
     recompute();
@@ -743,4 +795,4 @@ samplesPromise.then((list) => {
 renderAll();
 
 // 開発・検証用
-(window as unknown as { __app: unknown }).__app = { state, view, sampler };
+(window as unknown as { __app: unknown }).__app = { state, view, samplers, get sampler() { return dem(); } };
